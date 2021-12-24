@@ -1,4 +1,7 @@
 const Web3 = require('web3');
+const fs = require('fs');
+const readline = require('readline');
+const events = require('events');
 
 let web3 = new Web3(process.env['ETH_NODE_RPC']);
 
@@ -14,8 +17,34 @@ async function available(name) {
 
 (async function() {
 	if (process.argv.length > 2) {
-		const is_available = await available(process.argv[2]);
-		console.log(is_available ? 'yes' : 'no');
+		switch (process.argv[2]) {
+			case 'single': {
+				const is_available = await available(process.argv[3]);
+				console.log(is_available ? 'yes' : 'no');
+				break;
+			}
+			case 'multi': {
+				const fstream = fs.createReadStream(process.argv[3]);
+				const rl = readline.createInterface({input: fstream, crlfDelay: Infinity});
+				rl.on('line', async (line) => {
+					const name = line.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+					if (name.length < 3) { return; }
+					const avail = await available(name);
+					if (avail === true) {
+						console.log(name);
+					}
+				}).on('close', () => {
+					console.log('done');
+					process.exit(0);
+				});
+				await events.once(rl, 'close');
+				break;
+			}
+			default: {
+				console.error('Usage: [command] [single|multi] options');
+				process.exit(1);
+			}
+		}
 	}
 	process.exit(0);
 })();
